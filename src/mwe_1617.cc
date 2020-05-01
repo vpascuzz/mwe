@@ -4,10 +4,17 @@
 // longer supported" when compiling SYCL code with dpcpp/Beta06 and using CPU or
 // GPU devices. This warning was not issued in versions < Beta06.
 //
-// Compile (after setting DPC++ environment):
-// clang++ -g -fsycl [-DGPU_DEVICE | -DCPU_DEVICE] -o mwe_1617 mwe_1617.cc
+// Compile for Intel device(s):
+// clang++ -g -fsycl [-DGPU_DEVICE | -DCPU_DEVICE | -DCUDA_DEVICE] \
+// -o mwe_1617 mwe_1617.cc
 //
-// Omitting `-g` suppresses the warning.
+// Compile for CUDA device:
+// clang++ -g -fsycl -DCUDA_DEVICE \
+// -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Wno-unknown-cuda-version \
+// -o mwe_1617 mwe_1617.cc
+//
+// Omitting `-g` suppresses the warning. No warning seen in any case with a CUDA
+// device (though there's a floating point runtime exception).
 
 #include <CL/sycl.hpp>
 #include <iostream>
@@ -21,6 +28,25 @@
 static const unsigned int kNumElements = 10;
 static const CONSTANT char kPrintf[] = "  device_ele[%d] = %d\n";
 
+#ifdef CUDA_DEVICE
+class CUDASelector : public cl::sycl::device_selector {
+ public:
+  int operator()(const cl::sycl::device& Device) const override {
+    using namespace cl::sycl::info;
+
+    const std::string DeviceName = Device.get_info<device::name>();
+    const std::string DeviceVendor = Device.get_info<device::vendor>();
+    const std::string DeviceDriver =
+        Device.get_info<cl::sycl::info::device::driver_version>();
+
+    if (Device.is_gpu() && (DeviceVendor.find("NVIDIA") != std::string::npos) &&
+        (DeviceDriver.find("CUDA") != std::string::npos)) {
+      return 1;
+    };
+    return -1;
+  }
+};
+#endif
 class Test {
  public:
   Test() : eles_(nullptr), eles_device_(nullptr) {}
@@ -54,7 +80,9 @@ class Test {
 #ifdef CPU_DEVICE
     cl::sycl::cpu_selector dev_selector;
 #elif GPU_DEVICE
-    cl::sycl::cpu_selector dev_selector;
+    cl::sycl::gpu_selector dev_selector;
+#elif CUDA_DEVICE
+    CUDASelector dev_selector;
 #else
     cl::sycl::default_selector dev_selector;
 #endif
@@ -91,7 +119,9 @@ class Test {
         queue.memcpy(eles_device_, &eles_[0], kNumElements * sizeof(int));
     ev_cpy_cells.wait_and_throw();
 
-    // Read device memory
+#ifndef CUDA_DEVICE
+    // Read device memory, unless a CUDA device (which currently don't support
+    // experimental::printf())
     std::cout << "Test device cells..." << std::endl;
     auto ev_cellinfo = queue.submit([&](cl::sycl::handler& cgh) {
       cgh.parallel_for<class Dummy>(
@@ -103,6 +133,7 @@ class Test {
           });
     });
     ev_cellinfo.wait_and_throw();
+#endif  // !CUDA_DEVICE
 
     return true;
   }
