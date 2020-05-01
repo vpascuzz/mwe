@@ -34,10 +34,19 @@ class Test {
   };
 
   // Allocate host- and device-side memory.
-  bool AllocMem() {
-    // Allocate memory
-    eles_ = (int*)malloc(kNumElements * sizeof(int));
-    eles_device_ = (int*)malloc_device(kNumElements * sizeof(int), dev, ctx_);
+  bool AllocMem(cl::sycl::device* dev) {
+    eles_ = (unsigned int*)malloc(kNumElements * sizeof(int));
+    if (!eles_) {
+      std::cout << "Cannot allocate host-side memory!\n";
+      return false;
+    }
+    eles_device_ =
+        (unsigned int*)malloc_device(kNumElements * sizeof(int), *dev, ctx_);
+    if (!eles_device_) {
+      std::cout << "Cannot allocate device-side memory!\n";
+      return false;
+    }
+    return true;
   }
 
   bool LoadToDevice() {
@@ -66,7 +75,7 @@ class Test {
     }
 
     // Allocate memory
-    if (!AllocMem()) {
+    if (!AllocMem(&dev)) {
       std::cout << "Could not allocate host- or device-side memory!"
                 << std::endl;
       return false;
