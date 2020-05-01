@@ -5,7 +5,7 @@
 // GPU devices. This warning was not issued in versions < Beta06.
 //
 // Compile for Intel device(s):
-// clang++ -g -fsycl [-DGPU_DEVICE | -DCPU_DEVICE | -DCUDA_DEVICE] \
+// clang++ -g -fsycl [-DGPU_DEVICE | -DCPU_DEVICE] \
 // -o mwe_1617 mwe_1617.cc
 //
 // Compile for CUDA device:
