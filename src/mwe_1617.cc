@@ -23,15 +23,6 @@
 
 #include "Test.h"
 
-#ifdef __SYCL_DEVICE_ONLY__
-#define CONSTANT __attribute__((opencl_constant))
-#else
-#define CONSTANT
-#endif
-
-static const unsigned int kNumElements = 10;
-static const CONSTANT char kPrintf[] = "  device_ele[%d] = %d\n";
-
 #ifdef CUDA_DEVICE
 class CUDASelector : public cl::sycl::device_selector {
  public:
