@@ -1,3 +1,14 @@
+// https://github.com/intel/llvm/issues/1617
+// DIBlockByRefStruct on DICompositeType is no longer supported #1617
+// MWE reproducing the warning "DIBlockByRefStruct on DICompositeType is no
+// longer supported" when compiling SYCL code with dpcpp/Beta06 and using CPU or
+// GPU devices. This warning was not issued in versions < Beta06.
+//
+// Compile (after setting DPC++ environment):
+// clang++ -g -fsycl [-DGPU_DEVICE | -DCPU_DEVICE] -o mwe_1617 mwe_1617.cc
+//
+// Omitting `-g` suppresses the warning.
+
 #include <CL/sycl.hpp>
 #include <iostream>
 
@@ -21,6 +32,13 @@ class Test {
       free(eles_);
     }
   };
+
+  // Allocate host- and device-side memory.
+  bool AllocMem() {
+    // Allocate memory
+    eles_ = (int*)malloc(kNumElements * sizeof(int));
+    eles_device_ = (int*)malloc_device(kNumElements * sizeof(int), dev, ctx_);
+  }
 
   bool LoadToDevice() {
 // Device, queue and context setup
@@ -48,8 +66,11 @@ class Test {
     }
 
     // Allocate memory
-    eles_ = (int*)malloc(kNumElements * sizeof(int));
-    eles_device_ = (int*)malloc_device(kNumElements * sizeof(int), dev, ctx_);
+    if (!AllocMem()) {
+      std::cout << "Could not allocate host- or device-side memory!"
+                << std::endl;
+      return false;
+    }
 
     // Fill host-side memory with dummy Elements
     for (unsigned int iel = 0; iel < kNumElements; ++iel) {
@@ -79,13 +100,20 @@ class Test {
 
  private:
   cl::sycl::context ctx_;
-  int* eles_;
-  int* eles_device_;
+  unsigned int* eles_;
+  unsigned int* eles_device_;
 };
 
+// Main program
 int main() {
   Test* te = new Test();
-  te->LoadToDevice();
-  if (te) delete te;
+  // Ensure data was transferred to device.
+  if (!te->LoadToDevice()) {
+    std::cout << "Test::LoadToDevice() failed!\n";
+  }
+  if (te) {
+    delete te;
+    te = nullptr;
+  }
   return 0;
 }
