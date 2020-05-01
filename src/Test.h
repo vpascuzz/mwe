@@ -2,6 +2,8 @@
 // Test.h
 //
 
+#include <CL/sycl.hpp>
+
 class Test {
  public:
   Test() : eles_(nullptr), eles_device_(nullptr) {}

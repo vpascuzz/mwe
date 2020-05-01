@@ -1,3 +1,9 @@
+//
+// Test.cc
+//
+
+#include "Test.h"
+
 bool Test::AllocMem(cl::sycl::device* dev) {
   eles_ = (unsigned int*)malloc(kNumElements * sizeof(int));
   if (!eles_) {
