@@ -92,9 +92,9 @@ int main() {
     h.parallel_for<class foo>(
         cl::sycl::range<1>{42},
         // lambda-capture so we get the actual device memory
-        [=, dev_arr = this->deviceArray](cl::sycl::id<1> ID) {
+        [=](cl::sycl::id<1> ID) {
           int i = ID[0];
-          dev_arr[i]++;
+          deviceArray[i]++;
         });
   });
   queue.wait();
