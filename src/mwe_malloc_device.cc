@@ -11,16 +11,36 @@
 // device-side memory.
 //
 // Compile for Intel device(s):
-// clang++ -g -fsycl [-DUSE_SYCL_CPU | -DUSE_SYCL_GPU] \
+// clang++ -fsycl [-DUSE_SYCL_CPU | -DUSE_SYCL_GPU] \
 // -o mwe_1617 mwe_1617.cc
 //
 // Compile for CUDA device:
-// clang++ -g -fsycl -DUSE_PI_CUDA \
+// clang++ -fsycl -DUSE_PI_CUDA \
 // -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Wno-unknown-cuda-version \
-// -o mwe_1617 mwe_1617.cc
+// -o mwe_malloc_device /<...>/mwe_malloc_device.cc
 
 #include <CL/sycl.hpp>
 #include <iostream>
+
+#ifdef USE_PI_CUDA
+class CUDASelector : public cl::sycl::device_selector {
+ public:
+  int operator()(const cl::sycl::device& Device) const override {
+    using namespace cl::sycl::info;
+
+    const std::string DeviceName = Device.get_info<device::name>();
+    const std::string DeviceVendor = Device.get_info<device::vendor>();
+    const std::string DeviceDriver =
+        Device.get_info<cl::sycl::info::device::driver_version>();
+
+    if (Device.is_gpu() && (DeviceVendor.find("NVIDIA") != std::string::npos) &&
+        (DeviceDriver.find("CUDA") != std::string::npos)) {
+      return 1;
+    };
+    return -1;
+  }
+};
+#endif
 
 int main() {
   // Catch asynchronous exceptions
@@ -77,7 +97,7 @@ int main() {
   queue
       .submit([&](cl::sycl::handler& cgh) {
         cl::sycl::stream out(1024, 256, cgh);
-        cgh.single_task<class print2>([=] {
+        cgh.single_task<class print1>([=] {
           out << "[Before mod] deviceArray[10] = " << deviceArray[10]
               << cl::sycl::endl;
         });
@@ -89,13 +109,10 @@ int main() {
 #endif
 
   queue.submit([&](cl::sycl::handler& h) {
-    h.parallel_for<class foo>(
-        cl::sycl::range<1>{42},
-        // lambda-capture so we get the actual device memory
-        [=](cl::sycl::id<1> ID) {
-          int i = ID[0];
-          deviceArray[i]++;
-        });
+    h.parallel_for<class foo>(cl::sycl::range<1>{42}, [=](cl::sycl::id<1> ID) {
+      int i = ID[0];
+      deviceArray[i]++;
+    });
   });
   queue.wait();
 
