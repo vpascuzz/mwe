@@ -7,7 +7,17 @@
 // https://software.intel.com/content/dam/develop/public/us/en/documents/the-architecture-of-intel-processor-graphics-gen11-r1new.pdf
 // When compiling this code with Intel's llvm for CUDA, a segfault occurs when
 // attempting to access the malloc_device memory outside a kernel (as expected).
-// This is checked by
+// This is checked by instead using a cl::sycl::stream to output the data in
+// device-side memory.
+//
+// Compile for Intel device(s):
+// clang++ -g -fsycl [-DUSE_SYCL_CPU | -DUSE_SYCL_GPU] \
+// -o mwe_1617 mwe_1617.cc
+//
+// Compile for CUDA device:
+// clang++ -g -fsycl -DUSE_PI_CUDA \
+// -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Wno-unknown-cuda-version \
+// -o mwe_1617 mwe_1617.cc
 
 #include <CL/sycl.hpp>
 #include <iostream>
